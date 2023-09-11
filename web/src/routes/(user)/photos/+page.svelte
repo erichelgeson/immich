@@ -32,6 +32,20 @@
   const { isMultiSelectState, selectedAssets } = assetInteractionStore;
 
   $: isAllFavorite = Array.from($selectedAssets).every((asset) => asset.isFavorite);
+
+  const handleEscape = () => {
+    if ($showAssetViewer) {
+      return;
+    }
+    if (handleEscapeKey) {
+      handleEscapeKey = false;
+      return;
+    }
+    if ($isMultiSelectState) {
+      assetInteractionStore.clearMultiselect();
+      return;
+    }
+  };
 </script>
 
 <UserPageLayout user={data.user} hideNavbar={$isMultiSelectState} showUploadButton>
@@ -58,7 +72,7 @@
     {/if}
   </svelte:fragment>
   <svelte:fragment slot="content">
-    <AssetGrid {assetStore} {assetInteractionStore} removeAction={AssetAction.ARCHIVE}>
+    <AssetGrid {assetStore} {assetInteractionStore} removeAction={AssetAction.ARCHIVE} on:escape={handleEscape}>
       {#if data.user.memoriesEnabled}
         <MemoryLane />
       {/if}
