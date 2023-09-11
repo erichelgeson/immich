@@ -2,9 +2,10 @@ import { LoginResponseDto } from '@app/domain';
 import { AppModule, UserController } from '@app/immich';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { api } from '@test/api';
+import { db } from '@test/db';
+import { errorStub, userSignupStub, userStub } from '@test/fixtures';
 import request from 'supertest';
-import { errorStub } from '../fixtures';
-import { api, db } from '../test-utils';
 
 describe(`${UserController.name}`, () => {
   let app: INestApplication;
@@ -23,8 +24,8 @@ describe(`${UserController.name}`, () => {
 
   beforeEach(async () => {
     await db.reset();
-    await api.adminSignUp(server);
-    loginResponse = await api.adminLogin(server);
+    await api.authApi.adminSignUp(server);
+    loginResponse = await api.authApi.adminLogin(server);
     accessToken = loginResponse.accessToken;
   });
 
@@ -118,12 +119,21 @@ describe(`${UserController.name}`, () => {
 
   describe('POST /user', () => {
     it('should require authentication', async () => {
-      const { status, body } = await request(server)
-        .post(`/user`)
-        .send({ email: 'user1@immich.app', password: 'Password123', firstName: 'Immich', lastName: 'User' });
+      const { status, body } = await request(server).post(`/user`).send(userSignupStub);
       expect(status).toBe(401);
       expect(body).toEqual(errorStub.unauthorized);
     });
+
+    for (const key of Object.keys(userSignupStub)) {
+      it(`should not allow null ${key}`, async () => {
+        const { status, body } = await request(server)
+          .post(`/user`)
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ ...userSignupStub, [key]: null });
+        expect(status).toBe(400);
+        expect(body).toEqual(errorStub.badRequest);
+      });
+    }
 
     it('should ignore `isAdmin`', async () => {
       const { status, body } = await request(server)
@@ -169,6 +179,17 @@ describe(`${UserController.name}`, () => {
       expect(status).toBe(401);
       expect(body).toEqual(errorStub.unauthorized);
     });
+
+    for (const key of Object.keys(userStub.admin)) {
+      it(`should not allow null ${key}`, async () => {
+        const { status, body } = await request(server)
+          .put(`/user`)
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ ...userStub.admin, [key]: null });
+        expect(status).toBe(400);
+        expect(body).toEqual(errorStub.badRequest);
+      });
+    }
 
     it('should not allow a non-admin to become an admin', async () => {
       const user = await api.userApi.create(server, accessToken, {

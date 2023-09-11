@@ -5,6 +5,7 @@
   import EditNameInput from '$lib/components/faces-page/edit-name-input.svelte';
   import MergeFaceSelector from '$lib/components/faces-page/merge-face-selector.svelte';
   import MergeSuggestionModal from '$lib/components/faces-page/merge-suggestion-modal.svelte';
+  import SetBirthDateModal from '$lib/components/faces-page/set-birth-date-modal.svelte';
   import AddToAlbum from '$lib/components/photos-page/actions/add-to-album.svelte';
   import ArchiveAction from '$lib/components/photos-page/actions/archive-action.svelte';
   import CreateSharedLink from '$lib/components/photos-page/actions/create-shared-link.svelte';
@@ -42,6 +43,7 @@
     SELECT_FACE = 'select-face',
     MERGE_FACES = 'merge-faces',
     SUGGEST_MERGE = 'suggest-merge',
+    BIRTH_DATE = 'birth-date',
   }
 
   const assetStore = new AssetStore({
@@ -187,6 +189,29 @@
     }
     changeName();
   };
+
+  const handleSetBirthDate = async (birthDate: string) => {
+    try {
+      viewMode = ViewMode.VIEW_ASSETS;
+      data.person.birthDate = birthDate;
+
+      const { data: updatedPerson } = await api.personApi.updatePerson({
+        id: data.person.id,
+        personUpdateDto: { birthDate: birthDate.length > 0 ? birthDate : null },
+      });
+
+      people = people.map((person: PersonResponseDto) => {
+        if (person.id === updatedPerson.id) {
+          return updatedPerson;
+        }
+        return person;
+      });
+
+      notificationController.show({ message: 'Date of birth saved successfully', type: NotificationType.Info });
+    } catch (error) {
+      handleError(error, 'Unable to save date of birth');
+    }
+  };
 </script>
 
 {#if viewMode === ViewMode.SUGGEST_MERGE}
@@ -197,6 +222,14 @@
     on:close={() => (viewMode = ViewMode.VIEW_ASSETS)}
     on:reject={() => changeName()}
     on:confirm={(event) => handleMergeSameFace(event.detail)}
+  />
+{/if}
+
+{#if viewMode === ViewMode.BIRTH_DATE}
+  <SetBirthDateModal
+    birthDate={data.person.birthDate ?? ''}
+    on:close={() => (viewMode = ViewMode.VIEW_ASSETS)}
+    on:updated={(event) => handleSetBirthDate(event.detail)}
   />
 {/if}
 
@@ -221,11 +254,12 @@
       </AssetSelectContextMenu>
     </AssetSelectControlBar>
   {:else}
-    {#if viewMode === ViewMode.VIEW_ASSETS || viewMode === ViewMode.SUGGEST_MERGE}
+    {#if viewMode === ViewMode.VIEW_ASSETS || viewMode === ViewMode.SUGGEST_MERGE || viewMode === ViewMode.BIRTH_DATE}
       <ControlAppBar showBackButton backIcon={ArrowLeft} on:close-button-click={() => goto(previousRoute)}>
         <svelte:fragment slot="trailing">
           <AssetSelectContextMenu icon={DotsVertical} title="Menu">
             <MenuOption text="Change feature photo" on:click={() => (viewMode = ViewMode.SELECT_FACE)} />
+            <MenuOption text="Set date of birth" on:click={() => (viewMode = ViewMode.BIRTH_DATE)} />
             <MenuOption text="Merge face" on:click={() => (viewMode = ViewMode.MERGE_FACES)} />
           </AssetSelectContextMenu>
         </svelte:fragment>
@@ -249,7 +283,7 @@
     on:select={({ detail: asset }) => handleSelectFeaturePhoto(asset)}
     on:escape={handleEscape}
   >
-    {#if viewMode === ViewMode.VIEW_ASSETS || viewMode === ViewMode.SUGGEST_MERGE}
+    {#if viewMode === ViewMode.VIEW_ASSETS || viewMode === ViewMode.SUGGEST_MERGE || viewMode === ViewMode.BIRTH_DATE}
       <!-- Face information block -->
       <section class="flex place-items-center p-4 sm:px-6">
         {#if isEditingName}

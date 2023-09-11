@@ -1,21 +1,23 @@
 import { AssetType } from '@app/infra/entities';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import {
+  IAccessRepositoryMock,
   assetStub,
   authStub,
-  IAccessRepositoryMock,
   newAccessRepositoryMock,
   newAssetRepositoryMock,
   newCryptoRepositoryMock,
+  newJobRepositoryMock,
   newStorageRepositoryMock,
 } from '@test';
 import { when } from 'jest-when';
 import { Readable } from 'stream';
 import { ICryptoRepository } from '../crypto';
+import { IJobRepository, JobName } from '../job';
 import { IStorageRepository } from '../storage';
-import { AssetStats, IAssetRepository } from './asset.repository';
+import { AssetStats, IAssetRepository, TimeBucketSize } from './asset.repository';
 import { AssetService, UploadFieldName } from './asset.service';
-import { AssetStatsResponseDto, DownloadResponseDto } from './dto';
+import { AssetJobName, AssetStatsResponseDto, DownloadResponseDto } from './dto';
 import { mapAsset } from './response-dto';
 
 const downloadResponse: DownloadResponseDto = {
@@ -145,6 +147,7 @@ describe(AssetService.name, () => {
   let accessMock: IAccessRepositoryMock;
   let assetMock: jest.Mocked<IAssetRepository>;
   let cryptoMock: jest.Mocked<ICryptoRepository>;
+  let jobMock: jest.Mocked<IJobRepository>;
   let storageMock: jest.Mocked<IStorageRepository>;
 
   it('should work', () => {
@@ -155,8 +158,9 @@ describe(AssetService.name, () => {
     accessMock = newAccessRepositoryMock();
     assetMock = newAssetRepositoryMock();
     cryptoMock = newCryptoRepositoryMock();
+    jobMock = newJobRepositoryMock();
     storageMock = newStorageRepositoryMock();
-    sut = new AssetService(accessMock, assetMock, cryptoMock, storageMock);
+    sut = new AssetService(accessMock, assetMock, cryptoMock, jobMock, storageMock);
   });
 
   describe('canUpload', () => {
@@ -323,6 +327,73 @@ describe(AssetService.name, () => {
         [authStub.admin.id, new Date('2022-06-15T00:00:00.000Z')],
         [authStub.admin.id, new Date('2021-06-15T00:00:00.000Z')],
       ]);
+    });
+  });
+
+  describe('getTimeBuckets', () => {
+    it("should return buckets if userId and albumId aren't set", async () => {
+      assetMock.getTimeBuckets.mockResolvedValue([{ timeBucket: 'bucket', count: 1 }]);
+
+      await expect(
+        sut.getTimeBuckets(authStub.admin, {
+          size: TimeBucketSize.DAY,
+        }),
+      ).resolves.toEqual(expect.arrayContaining([{ timeBucket: 'bucket', count: 1 }]));
+      expect(assetMock.getTimeBuckets).toBeCalledWith({ size: TimeBucketSize.DAY, userId: authStub.admin.id });
+    });
+  });
+
+  describe('getByTimeBucket', () => {
+    it('should return the assets for a album time bucket if user has album.read', async () => {
+      accessMock.album.hasOwnerAccess.mockResolvedValue(true);
+      assetMock.getByTimeBucket.mockResolvedValue([assetStub.image]);
+
+      await expect(
+        sut.getByTimeBucket(authStub.admin, { size: TimeBucketSize.DAY, timeBucket: 'bucket', albumId: 'album-id' }),
+      ).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'asset-id' })]));
+
+      expect(accessMock.album.hasOwnerAccess).toHaveBeenCalledWith(authStub.admin.id, 'album-id');
+      expect(assetMock.getByTimeBucket).toBeCalledWith('bucket', {
+        size: TimeBucketSize.DAY,
+        timeBucket: 'bucket',
+        albumId: 'album-id',
+      });
+    });
+
+    it('should return the assets for a archive time bucket if user has archive.read', async () => {
+      assetMock.getByTimeBucket.mockResolvedValue([assetStub.image]);
+
+      await expect(
+        sut.getByTimeBucket(authStub.admin, {
+          size: TimeBucketSize.DAY,
+          timeBucket: 'bucket',
+          isArchived: true,
+          userId: authStub.admin.id,
+        }),
+      ).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'asset-id' })]));
+      expect(assetMock.getByTimeBucket).toBeCalledWith('bucket', {
+        size: TimeBucketSize.DAY,
+        timeBucket: 'bucket',
+        isArchived: true,
+        userId: authStub.admin.id,
+      });
+    });
+
+    it('should return the assets for a library time bucket if user has library.read', async () => {
+      assetMock.getByTimeBucket.mockResolvedValue([assetStub.image]);
+
+      await expect(
+        sut.getByTimeBucket(authStub.admin, {
+          size: TimeBucketSize.DAY,
+          timeBucket: 'bucket',
+          userId: authStub.admin.id,
+        }),
+      ).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'asset-id' })]));
+      expect(assetMock.getByTimeBucket).toBeCalledWith('bucket', {
+        size: TimeBucketSize.DAY,
+        timeBucket: 'bucket',
+        userId: authStub.admin.id,
+      });
     });
   });
 
@@ -515,6 +586,30 @@ describe(AssetService.name, () => {
     });
   });
 
+  describe('update', () => {
+    it('should require asset write access for the id', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(false);
+      await expect(sut.update(authStub.admin, 'asset-1', { isArchived: false })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(assetMock.save).not.toHaveBeenCalled();
+    });
+
+    it('should update the asset', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
+      assetMock.save.mockResolvedValue(assetStub.image);
+      await sut.update(authStub.admin, 'asset-1', { isFavorite: true });
+      expect(assetMock.save).toHaveBeenCalledWith({ id: 'asset-1', isFavorite: true });
+    });
+
+    it('should update the exif description', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
+      assetMock.save.mockResolvedValue(assetStub.image);
+      await sut.update(authStub.admin, 'asset-1', { description: 'Test description' });
+      expect(assetMock.upsertExif).toHaveBeenCalledWith({ assetId: 'asset-1', description: 'Test description' });
+    });
+  });
+
   describe('updateAll', () => {
     it('should require asset write access for all ids', async () => {
       accessMock.asset.hasOwnerAccess.mockResolvedValue(false);
@@ -530,6 +625,26 @@ describe(AssetService.name, () => {
       accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
       await sut.updateAll(authStub.admin, { ids: ['asset-1', 'asset-2'], isArchived: true });
       expect(assetMock.updateAll).toHaveBeenCalledWith(['asset-1', 'asset-2'], { isArchived: true });
+    });
+  });
+
+  describe('run', () => {
+    it('should run the refresh metadata job', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
+      await sut.run(authStub.admin, { assetIds: ['asset-1'], name: AssetJobName.REFRESH_METADATA }),
+        expect(jobMock.queue).toHaveBeenCalledWith({ name: JobName.METADATA_EXTRACTION, data: { id: 'asset-1' } });
+    });
+
+    it('should run the refresh thumbnails job', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
+      await sut.run(authStub.admin, { assetIds: ['asset-1'], name: AssetJobName.REGENERATE_THUMBNAIL }),
+        expect(jobMock.queue).toHaveBeenCalledWith({ name: JobName.GENERATE_JPEG_THUMBNAIL, data: { id: 'asset-1' } });
+    });
+
+    it('should run the transcode video', async () => {
+      accessMock.asset.hasOwnerAccess.mockResolvedValue(true);
+      await sut.run(authStub.admin, { assetIds: ['asset-1'], name: AssetJobName.TRANSCODE_VIDEO }),
+        expect(jobMock.queue).toHaveBeenCalledWith({ name: JobName.VIDEO_CONVERSION, data: { id: 'asset-1' } });
     });
   });
 });

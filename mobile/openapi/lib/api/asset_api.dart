@@ -353,14 +353,13 @@ class AssetApi {
   ///
   /// * [bool] isArchived:
   ///
-  /// * [bool] withoutThumbs:
-  ///   Include assets without thumbnails
-  ///
   /// * [num] skip:
+  ///
+  /// * [DateTime] updatedAfter:
   ///
   /// * [String] ifNoneMatch:
   ///   ETag of data already cached on the client
-  Future<Response> getAllAssetsWithHttpInfo({ String? userId, bool? isFavorite, bool? isArchived, bool? withoutThumbs, num? skip, String? ifNoneMatch, }) async {
+  Future<Response> getAllAssetsWithHttpInfo({ String? userId, bool? isFavorite, bool? isArchived, num? skip, DateTime? updatedAfter, String? ifNoneMatch, }) async {
     // ignore: prefer_const_declarations
     final path = r'/asset';
 
@@ -380,11 +379,11 @@ class AssetApi {
     if (isArchived != null) {
       queryParams.addAll(_queryParams('', 'isArchived', isArchived));
     }
-    if (withoutThumbs != null) {
-      queryParams.addAll(_queryParams('', 'withoutThumbs', withoutThumbs));
-    }
     if (skip != null) {
       queryParams.addAll(_queryParams('', 'skip', skip));
+    }
+    if (updatedAfter != null) {
+      queryParams.addAll(_queryParams('', 'updatedAfter', updatedAfter));
     }
 
     if (ifNoneMatch != null) {
@@ -415,15 +414,14 @@ class AssetApi {
   ///
   /// * [bool] isArchived:
   ///
-  /// * [bool] withoutThumbs:
-  ///   Include assets without thumbnails
-  ///
   /// * [num] skip:
+  ///
+  /// * [DateTime] updatedAfter:
   ///
   /// * [String] ifNoneMatch:
   ///   ETag of data already cached on the client
-  Future<List<AssetResponseDto>?> getAllAssets({ String? userId, bool? isFavorite, bool? isArchived, bool? withoutThumbs, num? skip, String? ifNoneMatch, }) async {
-    final response = await getAllAssetsWithHttpInfo( userId: userId, isFavorite: isFavorite, isArchived: isArchived, withoutThumbs: withoutThumbs, skip: skip, ifNoneMatch: ifNoneMatch, );
+  Future<List<AssetResponseDto>?> getAllAssets({ String? userId, bool? isFavorite, bool? isArchived, num? skip, DateTime? updatedAfter, String? ifNoneMatch, }) async {
+    final response = await getAllAssetsWithHttpInfo( userId: userId, isFavorite: isFavorite, isArchived: isArchived, skip: skip, updatedAfter: updatedAfter, ifNoneMatch: ifNoneMatch, );
     if (response.statusCode >= HttpStatus.badRequest) {
       throw ApiException(response.statusCode, await _decodeBodyBytes(response));
     }
@@ -1227,6 +1225,45 @@ class AssetApi {
     return null;
   }
 
+  /// Performs an HTTP 'POST /asset/jobs' operation and returns the [Response].
+  /// Parameters:
+  ///
+  /// * [AssetJobsDto] assetJobsDto (required):
+  Future<Response> runAssetJobsWithHttpInfo(AssetJobsDto assetJobsDto,) async {
+    // ignore: prefer_const_declarations
+    final path = r'/asset/jobs';
+
+    // ignore: prefer_final_locals
+    Object? postBody = assetJobsDto;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    const contentTypes = <String>['application/json'];
+
+
+    return apiClient.invokeAPI(
+      path,
+      'POST',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+    );
+  }
+
+  /// Parameters:
+  ///
+  /// * [AssetJobsDto] assetJobsDto (required):
+  Future<void> runAssetJobs(AssetJobsDto assetJobsDto,) async {
+    final response = await runAssetJobsWithHttpInfo(assetJobsDto,);
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+  }
+
   /// Performs an HTTP 'POST /asset/search' operation and returns the [Response].
   /// Parameters:
   ///
@@ -1347,10 +1384,7 @@ class AssetApi {
     return null;
   }
 
-  /// Update an asset
-  ///
-  /// Note: This method returns the HTTP [Response].
-  ///
+  /// Performs an HTTP 'PUT /asset/{id}' operation and returns the [Response].
   /// Parameters:
   ///
   /// * [String] id (required):
@@ -1382,8 +1416,6 @@ class AssetApi {
     );
   }
 
-  /// Update an asset
-  ///
   /// Parameters:
   ///
   /// * [String] id (required):

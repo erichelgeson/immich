@@ -753,20 +753,20 @@
             }
           },
           {
-            "name": "withoutThumbs",
-            "required": false,
-            "in": "query",
-            "description": "Include assets without thumbnails",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
             "name": "skip",
             "required": false,
             "in": "query",
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "name": "updatedAfter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
             }
           },
           {
@@ -1348,6 +1348,41 @@
                 }
               }
             },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Asset"
+        ]
+      }
+    },
+    "/asset/jobs": {
+      "post": {
+        "operationId": "runAssetJobs",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetJobsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
             "description": ""
           }
         },
@@ -1985,7 +2020,6 @@
     },
     "/asset/{id}": {
       "put": {
-        "description": "Update an asset",
         "operationId": "updateAsset",
         "parameters": [
           {
@@ -2033,6 +2067,65 @@
         ],
         "tags": [
           "Asset"
+        ]
+      }
+    },
+    "/audit/deletes": {
+      "get": {
+        "operationId": "getAuditDeletes",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/EntityType"
+            }
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDeletesResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Audit"
         ]
       }
     },
@@ -2383,6 +2476,37 @@
         ]
       }
     },
+    "/oauth/authorize": {
+      "post": {
+        "operationId": "authorizeOAuth",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "OAuth"
+        ]
+      }
+    },
     "/oauth/callback": {
       "post": {
         "operationId": "callback",
@@ -2416,6 +2540,8 @@
     },
     "/oauth/config": {
       "post": {
+        "deprecated": true,
+        "description": "@deprecated use feature flags and /oauth/authorize",
         "operationId": "generateConfig",
         "parameters": [],
         "requestBody": {
@@ -3149,38 +3275,6 @@
         ]
       }
     },
-    "/search/config": {
-      "get": {
-        "operationId": "getSearchConfig",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SearchConfigResponseDto"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "cookie": []
-          },
-          {
-            "api_key": []
-          }
-        ],
-        "tags": [
-          "Search"
-        ]
-      }
-    },
     "/search/explore": {
       "get": {
         "operationId": "getExploreData",
@@ -3243,6 +3337,48 @@
             "api_key": []
           }
         ],
+        "tags": [
+          "Server Info"
+        ]
+      }
+    },
+    "/server-info/config": {
+      "get": {
+        "operationId": "getServerConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerConfigDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "Server Info"
+        ]
+      }
+    },
+    "/server-info/features": {
+      "get": {
+        "operationId": "getServerFeatures",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerFeaturesDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
         "tags": [
           "Server Info"
         ]
@@ -3331,7 +3467,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ServerVersionReponseDto"
+                  "$ref": "#/components/schemas/ServerVersionResponseDto"
                 }
               }
             },
@@ -4597,7 +4733,7 @@
   "info": {
     "title": "Immich",
     "description": "Immich API",
-    "version": "1.73.0",
+    "version": "1.77.0",
     "contact": {}
   },
   "tags": [],
@@ -5021,6 +5157,33 @@
         ],
         "type": "object"
       },
+      "AssetJobName": {
+        "enum": [
+          "regenerate-thumbnail",
+          "refresh-metadata",
+          "transcode-video"
+        ],
+        "type": "string"
+      },
+      "AssetJobsDto": {
+        "properties": {
+          "assetIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/AssetJobName"
+          }
+        },
+        "required": [
+          "assetIds",
+          "name"
+        ],
+        "type": "object"
+      },
       "AssetResponseDto": {
         "properties": {
           "checksum": {
@@ -5066,6 +5229,9 @@
           "originalPath": {
             "type": "string"
           },
+          "owner": {
+            "$ref": "#/components/schemas/UserResponseDto"
+          },
           "ownerId": {
             "type": "string"
           },
@@ -5104,8 +5270,8 @@
           "type",
           "id",
           "deviceAssetId",
-          "ownerId",
           "deviceId",
+          "ownerId",
           "originalPath",
           "originalFileName",
           "resized",
@@ -5155,6 +5321,24 @@
           "opus"
         ],
         "type": "string"
+      },
+      "AuditDeletesResponseDto": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "needsFullSync": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "needsFullSync",
+          "ids"
+        ],
+        "type": "object"
       },
       "AuthDeviceResponseDto": {
         "properties": {
@@ -5225,6 +5409,42 @@
           "ids"
         ],
         "type": "object"
+      },
+      "CLIPConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/CLIPMode"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "modelType": {
+            "$ref": "#/components/schemas/ModelType"
+          }
+        },
+        "required": [
+          "enabled",
+          "modelName"
+        ],
+        "type": "object"
+      },
+      "CLIPMode": {
+        "enum": [
+          "vision",
+          "text"
+        ],
+        "type": "string"
+      },
+      "CQMode": {
+        "enum": [
+          "auto",
+          "cqp",
+          "icq"
+        ],
+        "type": "string"
       },
       "ChangePasswordDto": {
         "properties": {
@@ -5303,6 +5523,35 @@
           "existingIds"
         ],
         "type": "object"
+      },
+      "ClassificationConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "minScore": {
+            "type": "integer"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "modelType": {
+            "$ref": "#/components/schemas/ModelType"
+          }
+        },
+        "required": [
+          "minScore",
+          "enabled",
+          "modelName"
+        ],
+        "type": "object"
+      },
+      "Colorspace": {
+        "enum": [
+          "srgb",
+          "p3"
+        ],
+        "type": "string"
       },
       "CreateAlbumDto": {
         "properties": {
@@ -5617,6 +5866,13 @@
           "archives"
         ],
         "type": "object"
+      },
+      "EntityType": {
+        "enum": [
+          "ASSET",
+          "ALBUM"
+        ],
+        "type": "string"
       },
       "ExifResponseDto": {
         "properties": {
@@ -6009,6 +6265,25 @@
         ],
         "type": "object"
       },
+      "ModelType": {
+        "enum": [
+          "image-classification",
+          "facial-recognition",
+          "clip"
+        ],
+        "type": "string"
+      },
+      "OAuthAuthorizeResponseDto": {
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
       "OAuthCallbackDto": {
         "properties": {
           "url": {
@@ -6093,6 +6368,12 @@
       },
       "PeopleUpdateItem": {
         "properties": {
+          "birthDate": {
+            "description": "Person date of birth.\nNote: the mobile app cannot currently set the birth date to null.",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
           "featureFaceAssetId": {
             "description": "Asset is used to get the feature face thumbnail.",
             "type": "string"
@@ -6117,6 +6398,11 @@
       },
       "PersonResponseDto": {
         "properties": {
+          "birthDate": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -6131,6 +6417,7 @@
           }
         },
         "required": [
+          "birthDate",
           "id",
           "name",
           "thumbnailPath",
@@ -6140,6 +6427,12 @@
       },
       "PersonUpdateDto": {
         "properties": {
+          "birthDate": {
+            "description": "Person date of birth.\nNote: the mobile app cannot currently set the birth date to null.",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
           "featureFaceAssetId": {
             "description": "Asset is used to get the feature face thumbnail.",
             "type": "string"
@@ -6167,6 +6460,32 @@
         "required": [
           "isActive",
           "isPaused"
+        ],
+        "type": "object"
+      },
+      "RecognitionConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "maxDistance": {
+            "type": "integer"
+          },
+          "minScore": {
+            "type": "integer"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "modelType": {
+            "$ref": "#/components/schemas/ModelType"
+          }
+        },
+        "required": [
+          "minScore",
+          "maxDistance",
+          "enabled",
+          "modelName"
         ],
         "type": "object"
       },
@@ -6236,17 +6555,6 @@
           "count",
           "items",
           "facets"
-        ],
-        "type": "object"
-      },
-      "SearchConfigResponseDto": {
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled"
         ],
         "type": "object"
       },
@@ -6328,6 +6636,72 @@
         "required": [
           "albums",
           "assets"
+        ],
+        "type": "object"
+      },
+      "ServerConfigDto": {
+        "properties": {
+          "loginPageMessage": {
+            "type": "string"
+          },
+          "mapTileUrl": {
+            "type": "string"
+          },
+          "oauthButtonText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "oauthButtonText",
+          "loginPageMessage",
+          "mapTileUrl"
+        ],
+        "type": "object"
+      },
+      "ServerFeaturesDto": {
+        "properties": {
+          "clipEncode": {
+            "type": "boolean"
+          },
+          "configFile": {
+            "type": "boolean"
+          },
+          "facialRecognition": {
+            "type": "boolean"
+          },
+          "map": {
+            "type": "boolean"
+          },
+          "oauth": {
+            "type": "boolean"
+          },
+          "oauthAutoLaunch": {
+            "type": "boolean"
+          },
+          "passwordLogin": {
+            "type": "boolean"
+          },
+          "search": {
+            "type": "boolean"
+          },
+          "sidecar": {
+            "type": "boolean"
+          },
+          "tagImage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "clipEncode",
+          "configFile",
+          "facialRecognition",
+          "map",
+          "oauth",
+          "oauthAutoLaunch",
+          "passwordLogin",
+          "sidecar",
+          "search",
+          "tagImage"
         ],
         "type": "object"
       },
@@ -6450,7 +6824,7 @@
         ],
         "type": "object"
       },
-      "ServerVersionReponseDto": {
+      "ServerVersionResponseDto": {
         "properties": {
           "major": {
             "type": "integer"
@@ -6656,6 +7030,12 @@
           "job": {
             "$ref": "#/components/schemas/SystemConfigJobDto"
           },
+          "machineLearning": {
+            "$ref": "#/components/schemas/SystemConfigMachineLearningDto"
+          },
+          "map": {
+            "$ref": "#/components/schemas/SystemConfigMapDto"
+          },
           "oauth": {
             "$ref": "#/components/schemas/SystemConfigOAuthDto"
           },
@@ -6671,6 +7051,8 @@
         },
         "required": [
           "ffmpeg",
+          "machineLearning",
+          "map",
           "oauth",
           "passwordLogin",
           "storageTemplate",
@@ -6684,14 +7066,29 @@
           "accel": {
             "$ref": "#/components/schemas/TranscodeHWAccel"
           },
+          "bframes": {
+            "type": "integer"
+          },
+          "cqMode": {
+            "$ref": "#/components/schemas/CQMode"
+          },
           "crf": {
+            "type": "integer"
+          },
+          "gopSize": {
             "type": "integer"
           },
           "maxBitrate": {
             "type": "string"
           },
+          "npl": {
+            "type": "integer"
+          },
           "preset": {
             "type": "string"
+          },
+          "refs": {
+            "type": "integer"
           },
           "targetAudioCodec": {
             "$ref": "#/components/schemas/AudioCodec"
@@ -6701,6 +7098,9 @@
           },
           "targetVideoCodec": {
             "$ref": "#/components/schemas/VideoCodec"
+          },
+          "temporalAQ": {
+            "type": "boolean"
           },
           "threads": {
             "type": "integer"
@@ -6720,12 +7120,18 @@
           "threads",
           "targetVideoCodec",
           "targetAudioCodec",
+          "bframes",
+          "refs",
+          "gopSize",
+          "npl",
+          "cqMode",
           "transcode",
           "accel",
           "tonemap",
           "preset",
           "targetResolution",
           "maxBitrate",
+          "temporalAQ",
           "twoPass"
         ],
         "type": "object"
@@ -6774,6 +7180,48 @@
           "search",
           "recognizeFaces",
           "sidecar"
+        ],
+        "type": "object"
+      },
+      "SystemConfigMachineLearningDto": {
+        "properties": {
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationConfig"
+          },
+          "clip": {
+            "$ref": "#/components/schemas/CLIPConfig"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "facialRecognition": {
+            "$ref": "#/components/schemas/RecognitionConfig"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "url",
+          "classification",
+          "clip",
+          "facialRecognition"
+        ],
+        "type": "object"
+      },
+      "SystemConfigMapDto": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "tileUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "tileUrl"
         ],
         "type": "object"
       },
@@ -6908,7 +7356,13 @@
       },
       "SystemConfigThumbnailDto": {
         "properties": {
+          "colorspace": {
+            "$ref": "#/components/schemas/Colorspace"
+          },
           "jpegSize": {
+            "type": "integer"
+          },
+          "quality": {
             "type": "integer"
           },
           "webpSize": {
@@ -6917,7 +7371,9 @@
         },
         "required": [
           "webpSize",
-          "jpegSize"
+          "jpegSize",
+          "quality",
+          "colorspace"
         ],
         "type": "object"
       },
@@ -7033,18 +7489,6 @@
           },
           "isFavorite": {
             "type": "boolean"
-          },
-          "tagIds": {
-            "example": [
-              "bf973405-3f2a-48d2-a687-2ed4167164be",
-              "dd41870b-5d00-46d2-924e-1d8489a0aa0f",
-              "fad77c3f-deef-4e7e-9608-14c1aa4e559a"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "title": "Array of tag IDs to add to the asset",
-            "type": "array"
           }
         },
         "type": "object"

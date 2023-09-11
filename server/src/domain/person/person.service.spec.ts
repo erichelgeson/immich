@@ -18,6 +18,7 @@ import { PersonService } from './person.service';
 const responseDto: PersonResponseDto = {
   id: 'person-1',
   name: 'Person 1',
+  birthDate: null,
   thumbnailPath: '/path/to/thumbnail.jpg',
   isHidden: false,
 };
@@ -41,25 +42,31 @@ describe(PersonService.name, () => {
 
   describe('getAll', () => {
     it('should get all people with thumbnails', async () => {
-      personMock.getAll.mockResolvedValue([personStub.withName, personStub.noThumbnail]);
+      personMock.getAllForUser.mockResolvedValue([personStub.withName, personStub.noThumbnail]);
       await expect(sut.getAll(authStub.admin, { withHidden: undefined })).resolves.toEqual({
         total: 1,
         visible: 1,
         people: [responseDto],
       });
-      expect(personMock.getAll).toHaveBeenCalledWith(authStub.admin.id, { minimumFaceCount: 1, withHidden: false });
+      expect(personMock.getAllForUser).toHaveBeenCalledWith(authStub.admin.id, {
+        minimumFaceCount: 1,
+        withHidden: false,
+      });
     });
     it('should get all visible people with thumbnails', async () => {
-      personMock.getAll.mockResolvedValue([personStub.withName, personStub.hidden]);
+      personMock.getAllForUser.mockResolvedValue([personStub.withName, personStub.hidden]);
       await expect(sut.getAll(authStub.admin, { withHidden: false })).resolves.toEqual({
         total: 2,
         visible: 1,
         people: [responseDto],
       });
-      expect(personMock.getAll).toHaveBeenCalledWith(authStub.admin.id, { minimumFaceCount: 1, withHidden: false });
+      expect(personMock.getAllForUser).toHaveBeenCalledWith(authStub.admin.id, {
+        minimumFaceCount: 1,
+        withHidden: false,
+      });
     });
     it('should get all hidden and visible people with thumbnails', async () => {
-      personMock.getAll.mockResolvedValue([personStub.withName, personStub.hidden]);
+      personMock.getAllForUser.mockResolvedValue([personStub.withName, personStub.hidden]);
       await expect(sut.getAll(authStub.admin, { withHidden: true })).resolves.toEqual({
         total: 2,
         visible: 1,
@@ -68,12 +75,16 @@ describe(PersonService.name, () => {
           {
             id: 'person-1',
             name: '',
+            birthDate: null,
             thumbnailPath: '/path/to/thumbnail.jpg',
             isHidden: true,
           },
         ],
       });
-      expect(personMock.getAll).toHaveBeenCalledWith(authStub.admin.id, { minimumFaceCount: 1, withHidden: true });
+      expect(personMock.getAllForUser).toHaveBeenCalledWith(authStub.admin.id, {
+        minimumFaceCount: 1,
+        withHidden: true,
+      });
     });
   });
 
@@ -142,6 +153,24 @@ describe(PersonService.name, () => {
       });
     });
 
+    it("should update a person's date of birth", async () => {
+      personMock.getById.mockResolvedValue(personStub.noBirthDate);
+      personMock.update.mockResolvedValue(personStub.withBirthDate);
+      personMock.getAssets.mockResolvedValue([assetStub.image]);
+
+      await expect(sut.update(authStub.admin, 'person-1', { birthDate: new Date('1976-06-30') })).resolves.toEqual({
+        id: 'person-1',
+        name: 'Person 1',
+        birthDate: new Date('1976-06-30'),
+        thumbnailPath: '/path/to/thumbnail.jpg',
+        isHidden: false,
+      });
+
+      expect(personMock.getById).toHaveBeenCalledWith('admin_id', 'person-1');
+      expect(personMock.update).toHaveBeenCalledWith({ id: 'person-1', birthDate: new Date('1976-06-30') });
+      expect(jobMock.queue).not.toHaveBeenCalled();
+    });
+
     it('should update a person visibility', async () => {
       personMock.getById.mockResolvedValue(personStub.hidden);
       personMock.update.mockResolvedValue(personStub.withName);
@@ -185,6 +214,15 @@ describe(PersonService.name, () => {
           imageWidth: faceStub.face1.imageWidth,
         },
       });
+    });
+
+    it('should throw an error when the face feature assetId is invalid', async () => {
+      personMock.getById.mockResolvedValue(personStub.withName);
+
+      await expect(sut.update(authStub.admin, 'person-1', { featureFaceAssetId: '-1' })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(personMock.update).not.toHaveBeenCalled();
     });
   });
 

@@ -51,6 +51,7 @@ describe(JobService.name, () => {
         [{ name: JobName.USER_DELETE_CHECK }],
         [{ name: JobName.PERSON_CLEANUP }],
         [{ name: JobName.QUEUE_GENERATE_THUMBNAILS, data: { force: false } }],
+        [{ name: JobName.CLEAN_OLD_AUDIT_LOGS }],
       ]);
     });
   });
@@ -288,6 +289,17 @@ describe(JobService.name, () => {
         ],
       },
       {
+        item: { name: JobName.GENERATE_JPEG_THUMBNAIL, data: { id: 'asset-live-image', source: 'upload' } },
+        jobs: [
+          JobName.CLASSIFY_IMAGE,
+          JobName.GENERATE_WEBP_THUMBNAIL,
+          JobName.RECOGNIZE_FACES,
+          JobName.GENERATE_THUMBHASH_THUMBNAIL,
+          JobName.ENCODE_CLIP,
+          JobName.VIDEO_CONVERSION,
+        ],
+      },
+      {
         item: { name: JobName.CLASSIFY_IMAGE, data: { id: 'asset-1' } },
         jobs: [JobName.SEARCH_INDEX_ASSET],
       },
@@ -304,7 +316,11 @@ describe(JobService.name, () => {
     for (const { item, jobs } of tests) {
       it(`should queue ${jobs.length} jobs when a ${item.name} job finishes successfully`, async () => {
         if (item.name === JobName.GENERATE_JPEG_THUMBNAIL && item.data.source === 'upload') {
-          assetMock.getByIds.mockResolvedValue([assetStub.livePhotoMotionAsset]);
+          if (item.data.id === 'asset-live-image') {
+            assetMock.getByIds.mockResolvedValue([assetStub.livePhotoStillAsset]);
+          } else {
+            assetMock.getByIds.mockResolvedValue([assetStub.livePhotoMotionAsset]);
+          }
         } else {
           assetMock.getByIds.mockResolvedValue([]);
         }

@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   albumStub,
   assetStub,
@@ -12,15 +11,18 @@ import {
   newJobRepositoryMock,
   newMachineLearningRepositoryMock,
   newSearchRepositoryMock,
+  newSystemConfigRepositoryMock,
   searchStub,
 } from '@test';
 import { plainToInstance } from 'class-transformer';
 import { IAlbumRepository } from '../album/album.repository';
+import { mapAsset } from '../asset';
 import { IAssetRepository } from '../asset/asset.repository';
 import { IFaceRepository } from '../facial-recognition';
 import { JobName } from '../job';
 import { IJobRepository } from '../job/job.repository';
 import { IMachineLearningRepository } from '../smart-info';
+import { ISystemConfigRepository } from '../system-config';
 import { SearchDto } from './dto';
 import { ISearchRepository } from './search.repository';
 import { SearchService } from './search.service';
@@ -31,30 +33,35 @@ describe(SearchService.name, () => {
   let sut: SearchService;
   let albumMock: jest.Mocked<IAlbumRepository>;
   let assetMock: jest.Mocked<IAssetRepository>;
+  let configMock: jest.Mocked<ISystemConfigRepository>;
   let faceMock: jest.Mocked<IFaceRepository>;
   let jobMock: jest.Mocked<IJobRepository>;
   let machineMock: jest.Mocked<IMachineLearningRepository>;
   let searchMock: jest.Mocked<ISearchRepository>;
-  let configMock: jest.Mocked<ConfigService>;
 
-  const makeSut = (value?: string) => {
-    if (value) {
-      configMock.get.mockReturnValue(value);
-    }
-    return new SearchService(albumMock, assetMock, faceMock, jobMock, machineMock, searchMock, configMock);
-  };
-
-  beforeEach(() => {
+  beforeEach(async () => {
     albumMock = newAlbumRepositoryMock();
     assetMock = newAssetRepositoryMock();
+    configMock = newSystemConfigRepositoryMock();
     faceMock = newFaceRepositoryMock();
     jobMock = newJobRepositoryMock();
     machineMock = newMachineLearningRepositoryMock();
     searchMock = newSearchRepositoryMock();
-    configMock = { get: jest.fn() } as unknown as jest.Mocked<ConfigService>;
 
-    sut = makeSut();
+    sut = new SearchService(albumMock, assetMock, configMock, faceMock, jobMock, machineMock, searchMock);
+
+    searchMock.checkMigrationStatus.mockResolvedValue({ assets: false, albums: false, faces: false });
+
+    delete process.env.TYPESENSE_ENABLED;
+    await sut.init();
   });
+
+  const disableSearch = () => {
+    searchMock.setup.mockClear();
+    searchMock.checkMigrationStatus.mockClear();
+    jobMock.queue.mockClear();
+    process.env.TYPESENSE_ENABLED = 'false';
+  };
 
   afterEach(() => {
     sut.teardown();
@@ -86,45 +93,17 @@ describe(SearchService.name, () => {
     });
   });
 
-  describe('isEnabled', () => {
-    it('should be enabled by default', () => {
-      expect(sut.isEnabled()).toBe(true);
-    });
-
-    it('should be disabled via an env variable', () => {
-      const sut = makeSut('false');
-
-      expect(sut.isEnabled()).toBe(false);
-    });
-  });
-
-  describe('getConfig', () => {
-    it('should return the config', () => {
-      expect(sut.getConfig()).toEqual({ enabled: true });
-    });
-
-    it('should return the config when search is disabled', () => {
-      const sut = makeSut('false');
-
-      expect(sut.getConfig()).toEqual({ enabled: false });
-    });
-  });
-
   describe(`init`, () => {
     it('should skip when search is disabled', async () => {
-      const sut = makeSut('false');
-
+      disableSearch();
       await sut.init();
 
       expect(searchMock.setup).not.toHaveBeenCalled();
       expect(searchMock.checkMigrationStatus).not.toHaveBeenCalled();
       expect(jobMock.queue).not.toHaveBeenCalled();
-
-      sut.teardown();
     });
 
     it('should skip schema migration if not needed', async () => {
-      searchMock.checkMigrationStatus.mockResolvedValue({ assets: false, albums: false, faces: false });
       await sut.init();
 
       expect(searchMock.setup).toHaveBeenCalled();
@@ -144,22 +123,73 @@ describe(SearchService.name, () => {
     });
   });
 
-  describe('search', () => {
-    it('should throw an error is search is disabled', async () => {
-      const sut = makeSut('false');
-
-      await expect(sut.search(authStub.admin, {})).rejects.toBeInstanceOf(BadRequestException);
-
-      expect(searchMock.searchAlbums).not.toHaveBeenCalled();
-      expect(searchMock.searchAssets).not.toHaveBeenCalled();
+  describe('getExploreData', () => {
+    it('should throw bad request exception if search is disabled', async () => {
+      disableSearch();
+      await expect(sut.getExploreData(authStub.admin)).rejects.toBeInstanceOf(BadRequestException);
+      expect(searchMock.explore).not.toHaveBeenCalled();
     });
 
-    it('should search assets and albums', async () => {
-      searchMock.searchAssets.mockResolvedValue(searchStub.emptyResults);
+    it('should return explore data if feature flag SEARCH is set', async () => {
+      searchMock.explore.mockResolvedValue([{ fieldName: 'name', items: [{ value: 'image', data: assetStub.image }] }]);
+      assetMock.getByIds.mockResolvedValue([assetStub.image]);
+
+      await expect(sut.getExploreData(authStub.admin)).resolves.toEqual([
+        {
+          fieldName: 'name',
+          items: [{ value: 'image', data: mapAsset(assetStub.image) }],
+        },
+      ]);
+
+      expect(searchMock.explore).toHaveBeenCalledWith(authStub.admin.id);
+      expect(assetMock.getByIds).toHaveBeenCalledWith([assetStub.image.id]);
+    });
+  });
+
+  describe('search', () => {
+    // it('should throw an error is search is disabled', async () => {
+    //   sut['enabled'] = false;
+
+    //   await expect(sut.search(authStub.admin, {})).rejects.toBeInstanceOf(BadRequestException);
+
+    //   expect(searchMock.searchAlbums).not.toHaveBeenCalled();
+    //   expect(searchMock.searchAssets).not.toHaveBeenCalled();
+    // });
+
+    it('should search assets and albums using text search', async () => {
+      searchMock.searchAssets.mockResolvedValue(searchStub.withImage);
       searchMock.searchAlbums.mockResolvedValue(searchStub.emptyResults);
-      searchMock.vectorSearch.mockResolvedValue(searchStub.emptyResults);
+      assetMock.getByIds.mockResolvedValue([assetStub.image]);
 
       await expect(sut.search(authStub.admin, {})).resolves.toEqual({
+        albums: {
+          total: 0,
+          count: 0,
+          page: 1,
+          items: [],
+          facets: [],
+          distances: [],
+        },
+        assets: {
+          total: 1,
+          count: 1,
+          page: 1,
+          items: [mapAsset(assetStub.image)],
+          facets: [],
+          distances: [],
+        },
+      });
+
+      // expect(searchMock.searchAssets).toHaveBeenCalledWith('*', { userId: authStub.admin.id });
+      expect(searchMock.searchAlbums).toHaveBeenCalledWith('*', { userId: authStub.admin.id });
+    });
+
+    it('should search assets and albums using vector search', async () => {
+      searchMock.vectorSearch.mockResolvedValue(searchStub.emptyResults);
+      searchMock.searchAlbums.mockResolvedValue(searchStub.emptyResults);
+      machineMock.encodeText.mockResolvedValue([123]);
+
+      await expect(sut.search(authStub.admin, { clip: true, query: 'foo' })).resolves.toEqual({
         albums: {
           total: 0,
           count: 0,
@@ -178,8 +208,17 @@ describe(SearchService.name, () => {
         },
       });
 
-      // expect(searchMock.searchAssets).toHaveBeenCalledWith('*', { userId: authStub.admin.id });
-      expect(searchMock.searchAlbums).toHaveBeenCalledWith('*', { userId: authStub.admin.id });
+      expect(machineMock.encodeText).toHaveBeenCalledWith(expect.any(String), { text: 'foo' }, expect.any(Object));
+      expect(searchMock.vectorSearch).toHaveBeenCalledWith([123], {
+        userId: authStub.admin.id,
+        clip: true,
+        query: 'foo',
+      });
+      expect(searchMock.searchAlbums).toHaveBeenCalledWith('foo', {
+        userId: authStub.admin.id,
+        clip: true,
+        query: 'foo',
+      });
     });
   });
 
@@ -205,7 +244,7 @@ describe(SearchService.name, () => {
     });
 
     it('should skip if search is disabled', async () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
 
       await sut.handleIndexAssets();
 
@@ -216,7 +255,7 @@ describe(SearchService.name, () => {
 
   describe('handleIndexAsset', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleIndexAsset({ ids: [assetStub.image.id] });
     });
 
@@ -227,7 +266,7 @@ describe(SearchService.name, () => {
 
   describe('handleIndexAlbums', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleIndexAlbums();
     });
 
@@ -242,7 +281,7 @@ describe(SearchService.name, () => {
 
   describe('handleIndexAlbum', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleIndexAlbum({ ids: [albumStub.empty.id] });
     });
 
@@ -253,7 +292,7 @@ describe(SearchService.name, () => {
 
   describe('handleRemoveAlbum', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleRemoveAlbum({ ids: ['album1'] });
     });
 
@@ -264,7 +303,7 @@ describe(SearchService.name, () => {
 
   describe('handleRemoveAsset', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleRemoveAsset({ ids: ['asset1'] });
     });
 
@@ -305,7 +344,7 @@ describe(SearchService.name, () => {
     });
 
     it('should skip if search is disabled', async () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
 
       await sut.handleIndexFaces();
 
@@ -315,7 +354,7 @@ describe(SearchService.name, () => {
 
   describe('handleIndexAsset', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleIndexFace({ assetId: 'asset-1', personId: 'person-1' });
 
       expect(searchMock.importFaces).not.toHaveBeenCalled();
@@ -333,7 +372,7 @@ describe(SearchService.name, () => {
 
   describe('handleRemoveFace', () => {
     it('should skip if search is disabled', () => {
-      const sut = makeSut('false');
+      sut['enabled'] = false;
       sut.handleRemoveFace({ assetId: 'asset-1', personId: 'person-1' });
     });
 

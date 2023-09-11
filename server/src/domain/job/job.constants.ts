@@ -28,6 +28,7 @@ export enum JobName {
   GENERATE_JPEG_THUMBNAIL = 'generate-jpeg-thumbnail',
   GENERATE_WEBP_THUMBNAIL = 'generate-webp-thumbnail',
   GENERATE_THUMBHASH_THUMBNAIL = 'generate-thumbhash-thumbnail',
+  GENERATE_FACE_THUMBNAIL = 'generate-face-thumbnail',
 
   // metadata
   QUEUE_METADATA_EXTRACTION = 'queue-metadata-extraction',
@@ -50,11 +51,11 @@ export enum JobName {
   // facial recognition
   QUEUE_RECOGNIZE_FACES = 'queue-recognize-faces',
   RECOGNIZE_FACES = 'recognize-faces',
-  GENERATE_FACE_THUMBNAIL = 'generate-face-thumbnail',
   PERSON_CLEANUP = 'person-cleanup',
 
   // cleanup
   DELETE_FILES = 'delete-files',
+  CLEAN_OLD_AUDIT_LOGS = 'clean-old-audit-logs',
 
   // search
   SEARCH_INDEX_ASSETS = 'search-index-assets',
@@ -84,6 +85,7 @@ export const JOBS_TO_QUEUE: Record<JobName, QueueName> = {
   [JobName.USER_DELETE_CHECK]: QueueName.BACKGROUND_TASK,
   [JobName.USER_DELETION]: QueueName.BACKGROUND_TASK,
   [JobName.DELETE_FILES]: QueueName.BACKGROUND_TASK,
+  [JobName.CLEAN_OLD_AUDIT_LOGS]: QueueName.BACKGROUND_TASK,
   [JobName.PERSON_CLEANUP]: QueueName.BACKGROUND_TASK,
 
   // conversion
@@ -95,6 +97,7 @@ export const JOBS_TO_QUEUE: Record<JobName, QueueName> = {
   [JobName.GENERATE_JPEG_THUMBNAIL]: QueueName.THUMBNAIL_GENERATION,
   [JobName.GENERATE_WEBP_THUMBNAIL]: QueueName.THUMBNAIL_GENERATION,
   [JobName.GENERATE_THUMBHASH_THUMBNAIL]: QueueName.THUMBNAIL_GENERATION,
+  [JobName.GENERATE_FACE_THUMBNAIL]: QueueName.THUMBNAIL_GENERATION,
 
   // metadata
   [JobName.QUEUE_METADATA_EXTRACTION]: QueueName.METADATA_EXTRACTION,
@@ -113,7 +116,6 @@ export const JOBS_TO_QUEUE: Record<JobName, QueueName> = {
   // facial recognition
   [JobName.QUEUE_RECOGNIZE_FACES]: QueueName.RECOGNIZE_FACES,
   [JobName.RECOGNIZE_FACES]: QueueName.RECOGNIZE_FACES,
-  [JobName.GENERATE_FACE_THUMBNAIL]: QueueName.RECOGNIZE_FACES,
 
   // clip
   [JobName.QUEUE_ENCODE_CLIP]: QueueName.CLIP_ENCODING,
